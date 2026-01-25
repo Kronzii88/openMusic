@@ -1,13 +1,10 @@
+import autoBind from "auto-bind";
 class AlbumsHandler {
   constructor(service, validator) {
     this._service = service;
     this._validator = validator;
 
-    // Binding context agar 'this' dikenali saat dipanggil route
-    this.postAlbumHandler = this.postAlbumHandler.bind(this);
-    this.getAlbumByIdHandler = this.getAlbumByIdHandler.bind(this);
-    this.putAlbumByIdHandler = this.putAlbumByIdHandler.bind(this);
-    this.deleteAlbumByIdHandler = this.deleteAlbumByIdHandler.bind(this);
+    autoBind(this);
   }
 
   async postAlbumHandler(req, res, next) {
