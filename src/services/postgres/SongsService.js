@@ -27,35 +27,13 @@ class SongsService {
   }
 
   // Kriteria Opsional 2: Query Parameter
-  async getSongs(title, performer) {
-    let text = "SELECT id, title, performer FROM songs";
-    const values = [];
-
-    if (title || performer) {
-      text += " WHERE";
-
-      if (title) {
-        text += ` title ILIKE $${values.length + 1}`;
-        values.push(`%${title}%`);
-      }
-
-      if (title && performer) {
-        text += " AND";
-      }
-
-      if (performer) {
-        text += ` performer ILIKE $${values.length + 1}`;
-        values.push(`%${performer}%`);
-      }
-    }
-
+  async getSongs(title = "", performer = "") {
     const query = {
-      text: text,
-      values: values,
+      text: "SELECT id, title, performer FROM songs WHERE title ILIKE $1 and performer ILIKE $2",
+      values: [`%${title}%`, `%${performer}%`],
     };
-
-    const result = await this._pool.query(query);
-    return result.rows;
+    const { rows } = await this._pool.query(query);
+    return rows;
   }
 
   async getSongById(id) {
