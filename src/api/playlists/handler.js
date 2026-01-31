@@ -53,9 +53,11 @@ class PlaylistsHandler {
       const { id: credentialId } = req.user;
 
       await this._service.verifyPlaylistAccess(playlistId, credentialId);
+
+      await this._service.verifySongExists(songId);
+
       await this._service.addSongToPlaylist(playlistId, songId);
 
-      // Log Activity
       await this._service.addActivity(playlistId, songId, credentialId, "add");
 
       res.status(201).json({
