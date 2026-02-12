@@ -9,12 +9,24 @@ import users from "./api/users/index.js";
 import authentications from "./api/authentications/index.js";
 import playlists from "./api/playlists/index.js";
 import collaborations from "./api/collaborations/index.js";
+import path from "path";
+import { fileURLToPath } from "url";
+import uploads from "./api/uploads/index.js";
+import likes from "./api/likes/index.js";
+import exportsApi from "./api/exports/index.js";
 
 import UsersService from "./services/postgres/UsersService.js";
 import AuthenticationsService from "./services/postgres/AuthenticationsService.js";
 import PlaylistsService from "./services/postgres/PlaylistsService.js";
 import CollaborationsService from "./services/postgres/CollaborationsService.js";
 import TokenManager from "./tokenize/TokenManager.js";
+import StorageService from "./services/storage/StorageService.js";
+import CacheService from "./services/redis/CacheService.js";
+import LikesService from "./services/postgres/LikesService.js";
+import ProducerService from "./services/rabbitmq/ProducerService.js";
+import AlbumsService from "./services/postgres/AlbumsService.js";
+import UploadsValidator from "./validator/uploads/index.js";
+import ExportsValidator from "./validator/exports/index.js";
 
 import UsersValidator from "./validator/users/index.js";
 import AuthenticationsValidator from "./validator/authentications/index.js";
@@ -22,6 +34,9 @@ import PlaylistsValidator from "./validator/playlists/index.js";
 import CollaborationsValidator from "./validator/collaborations/index.js";
 import AuthenticationError from "./exceptions/AuthenticationError.js";
 import jwt from "jsonwebtoken";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -41,6 +56,12 @@ const collaborationsService = new CollaborationsService();
 const playlistsService = new PlaylistsService(collaborationsService);
 const usersService = new UsersService();
 const authenticationsService = new AuthenticationsService();
+const storageService = new StorageService(
+  path.resolve(__dirname, "api/uploads/file/images")
+);
+const albumsService = new AlbumsService();
+const cacheService = new CacheService();
+const likesService = new LikesService(cacheService);
 
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers["authorization"];
@@ -84,6 +105,39 @@ app.use(
 );
 app.use("/albums", albumsRouter);
 app.use("/songs", songsRouter);
+app.use(
+  "/albums/images",
+  express.static(path.resolve(__dirname, "api/uploads/file/images"))
+);
+
+app.use("/", uploads(storageService, albumsService, UploadsValidator));
+
+// Exports (Protected)
+app.use(
+  "/export",
+  authenticateToken,
+  exportsApi(
+    ProducerService, // Service RabbitMQ
+    playlistsService, // Service Playlist (untuk verifikasi owner)
+    ExportsValidator // Validator Payload
+  )
+);
+
+// Likes (Protected)
+const likesRouter = likes(likesService);
+app.use(
+  "/albums",
+  (req, res, next) => {
+    // Middleware manual: Jika method POST atau DELETE, cek token
+    if (req.method === "POST" || req.method === "DELETE") {
+      authenticateToken(req, res, next);
+    } else {
+      // Jika GET, lanjut saja (Public)
+      next();
+    }
+  },
+  likesRouter
+);
 
 // Global Error Handling Middleware
 app.use((err, req, res, next) => {

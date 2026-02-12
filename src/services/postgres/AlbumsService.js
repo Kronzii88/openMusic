@@ -37,6 +37,15 @@ class AlbumsService {
       throw new NotFoundError("Album tidak ditemukan");
     }
 
+    const album = result.rows[0];
+
+    // Logika Cover URL
+    if (album.cover) {
+      album.coverUrl = `http://${process.env.HOST}:${process.env.PORT}/albums/images/${album.cover}`;
+    }
+
+    delete album.cover;
+
     // Kriteria Opsional 1: Daftar lagu di dalam detail album
     const songsQuery = {
       text: 'SELECT id, title, performer FROM songs WHERE "albumId" = $1',
@@ -44,11 +53,21 @@ class AlbumsService {
     };
     const songsResult = await this._pool.query(songsQuery);
 
-    const album = result.rows[0];
     return {
       ...album,
       songs: songsResult.rows,
     };
+  }
+
+  async editAlbumCoverById(id, filename) {
+    const query = {
+      text: "UPDATE albums SET cover = $1 WHERE id = $2 RETURNING id",
+      values: [filename, id],
+    };
+
+    const result = await this._pool.query(query);
+    if (!result.rows.length)
+      throw new NotFoundError("Gagal memperbarui cover. Id tidak ditemukan");
   }
 
   async editAlbumById(id, { name, year }) {
